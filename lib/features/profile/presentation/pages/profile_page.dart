@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:newjuststock/core/navigation/fade_route.dart';
+import 'package:newjuststock/services/session_service.dart';
 import 'package:newjuststock/features/auth/presentation/pages/login_register_page.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -129,7 +130,9 @@ class ProfilePage extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             FilledButton.icon(
-              onPressed: () {
+              onPressed: () async {
+                await SessionService.clearSession();
+                if (!context.mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
                   fadeRoute(const LoginRegisterPage()),
                   (route) => false,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:newjuststock/core/navigation/fade_route.dart';
 import 'package:newjuststock/features/home/presentation/pages/home_page.dart';
 import 'package:newjuststock/services/auth_service.dart';
+import 'package:newjuststock/services/session_service.dart';
 
 class OtpVerifyPage extends StatefulWidget {
   final String name;
@@ -37,29 +38,99 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
 
     if (!mounted) return;
     if (res.ok) {
+      final data = res.data;
+      final token = _extractToken(data);
+      final resolvedName = _extractName(data);
+
+      await _persistSession(token, resolvedName);
+      if (!mounted) return;
+
       setState(() => _verified = true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message)));
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('OTP verified successfully.')),
+        );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
-          fadeRoute(HomePage(name: widget.name, mobile: widget.mobile)),
+          fadeRoute(
+            HomePage(
+              name: resolvedName,
+              mobile: widget.mobile,
+              token: token.isNotEmpty ? token : null,
+            ),
+          ),
           (route) => false,
         );
       });
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message)));
+      ScaffoldMessenger.of(context)
+        ..removeCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(res.message)));
+    }
+  }
+
+  Future<void> _persistSession(String token, String resolvedName) async {
+    if (token.isNotEmpty) {
+      await SessionService.saveSession(
+        AuthSession(token: token, name: resolvedName, mobile: widget.mobile),
+      );
+    } else {
+      await SessionService.clearSession();
     }
   }
 
   Future<void> _resend() async {
     final res = await AuthService.requestOtp(widget.mobile);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(res.message)));
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(res.message)));
+  }
+
+  String _extractToken(Map<String, dynamic>? data) {
+    if (data == null) return '';
+    final candidates = [
+      data['token'],
+      data['accessToken'],
+      data['access_token'],
+      data['jwt'],
+      data['sessionToken'],
+    ];
+    for (final candidate in candidates) {
+      if (candidate is String && candidate.trim().isNotEmpty) {
+        return candidate.trim();
+      }
+    }
+    for (final nestedKey in ['data', 'result', 'payload']) {
+      final nested = data[nestedKey];
+      if (nested is Map<String, dynamic>) {
+        final token = _extractToken(nested);
+        if (token.isNotEmpty) {
+          return token;
+        }
+      }
+    }
+    return '';
+  }
+
+  String _extractName(Map<String, dynamic>? data) {
+    if (data == null) return widget.name;
+    final candidates = [
+      data['name'],
+      data['fullName'],
+      data['username'],
+      if (data['user'] is Map<String, dynamic>)
+        (data['user'] as Map<String, dynamic>)['name'],
+      if (data['profile'] is Map<String, dynamic>)
+        (data['profile'] as Map<String, dynamic>)['name'],
+    ];
+    for (final candidate in candidates) {
+      if (candidate is String && candidate.trim().isNotEmpty) {
+        return candidate.trim();
+      }
+    }
+    return widget.name;
   }
 
   @override
@@ -128,7 +199,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                         maxLength: 6,
                         decoration: const InputDecoration(
                           labelText: 'Verification Code',
-                          hintText: '······',
+                          hintText: '------',
                           counterText: '',
                           filled: true,
                           fillColor: Colors.white,
