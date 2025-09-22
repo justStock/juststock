@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,7 @@ import 'package:newjuststock/features/auth/presentation/pages/login_register_pag
 import 'package:newjuststock/features/profile/presentation/pages/profile_page.dart';
 import 'package:newjuststock/services/session_service.dart';
 import 'package:newjuststock/services/segment_service.dart';
+import 'package:newjuststock/wallet/ui/wallet_screen.dart';
 
 class HomePage extends StatefulWidget {
   final String name;
@@ -286,6 +287,21 @@ class _HomePageState extends State<HomePage> {
         ),
         centerTitle: false,
         actions: [
+          IconButton(
+            tooltip: 'Wallet',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () {
+              Navigator.of(context).push(
+                fadeRoute(
+                  WalletScreen(
+                    name: widget.name,
+                    mobile: widget.mobile,
+                    token: widget.token,
+                  ),
+                ),
+              );
+            },
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12.0),
             child: InkWell(
