@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'package:newjuststock/wallet/services/wallet_service.dart';
@@ -20,7 +21,11 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  late final Razorpay _razorpay;
+  Razorpay? _razorpay;
+  bool get _supportsRazorpay =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
   WalletBalance? _balance;
   bool _loadingBalance = true;
   bool _creatingOrder = false;
@@ -32,16 +37,22 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   void initState() {
     super.initState();
-    _razorpay = Razorpay();
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    if (_supportsRazorpay) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showSnack('Razorpay checkout is only supported on Android and iOS builds.');
+      });
+    }
     _loadBalance();
   }
 
   @override
   void dispose() {
-    _razorpay.clear();
+    _razorpay?.clear();
     super.dispose();
   }
 
@@ -82,6 +93,10 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _promptTopUp() async {
+    if (!_supportsRazorpay) {
+      _showSnack('Razorpay checkout is only supported on Android and iOS builds.');
+      return;
+    }
     final controller = TextEditingController();
     final amount = await showDialog<int>(
       context: context,
@@ -185,8 +200,13 @@ class _WalletScreenState extends State<WalletScreen> {
       },
     };
 
+    final razorpay = _razorpay;
+    if (razorpay == null) {
+      _showSnack('Razorpay checkout is only supported on Android and iOS builds.');
+      return;
+    }
     try {
-      _razorpay.open(options);
+      razorpay.open(options);
     } catch (e) {
       _showSnack('Unable to launch payment: $e');
     }

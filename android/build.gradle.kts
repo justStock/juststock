@@ -1,44 +1,17 @@
-import java.util.Properties
-import java.io.FileInputStream
+import org.gradle.api.tasks.Delete
 
-pluginManagement {
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-
-    val flutterSdkPath: String? = run {
-        val f = File(settingsDir, "local.properties")
-        if (f.exists()) {
-            val p = Properties().apply { load(FileInputStream(f)) }
-            p.getProperty("flutter.sdk")
-        } else {
-            System.getenv("FLUTTER_HOME")
-        }
-    }
-
-    check(flutterSdkPath != null) {
-        "Flutter SDK not found. Define flutter.sdk in local.properties or set FLUTTER_HOME."
-    }
-
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
-
-  plugins {
-    id("com.android.application") version "8.6.0"
-    id("com.android.library") version "8.6.0"
-    id("org.jetbrains.kotlin.android") version "2.0.21"
-    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+plugins {
+    // Versions are managed in settings.gradle via pluginManagement
+    id("com.android.application") apply false
+    id("com.android.library") apply false
+    id("org.jetbrains.kotlin.android") apply false
+    id("dev.flutter.flutter-gradle-plugin") apply false
 }
 
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        google()
-        mavenCentral()
-    }
+tasks.register<Delete>("clean") {
+    delete(rootProject.buildDir)
 }
-
-include(":app")
