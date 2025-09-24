@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:newjuststock/core/navigation/fade_route.dart';
 import 'package:newjuststock/features/auth/presentation/pages/login_register_page.dart';
 import 'package:newjuststock/features/home/presentation/pages/home_page.dart';
+import 'package:newjuststock/features/legal/presentation/pages/terms_conditions_page.dart';
 import 'package:newjuststock/services/session_service.dart';
 
 class SplashPage extends StatefulWidget {
@@ -35,15 +36,14 @@ class _SplashPageState extends State<SplashPage>
       await Future.delayed(const Duration(milliseconds: 2000));
       if (!mounted) return;
       if (session != null && session.isValid) {
-        Navigator.of(context).pushReplacement(
-          fadeRoute(
-            HomePage(
-              name: session.name.isEmpty ? 'User' : session.name,
-              mobile: session.mobile,
-              token: session.token,
-            ),
-          ),
-        );
+        final Widget target = session.termsAccepted
+            ? HomePage(
+                name: session.name.isEmpty ? 'User' : session.name,
+                mobile: session.mobile,
+                token: session.token,
+              )
+            : TermsConditionsPage(session: session);
+        Navigator.of(context).pushReplacement(fadeRoute(target));
       } else {
         Navigator.of(
           context,

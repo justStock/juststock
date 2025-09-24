@@ -20,6 +20,8 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
   final _mobileController = TextEditingController();
   late final AnimationController _bgController;
 
+  bool _sendingOtp = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,8 +39,6 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
     super.dispose();
   }
 
-  bool _sendingOtp = false;
-
   Future<void> _onContinue() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
@@ -51,16 +51,14 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
 
     if (!mounted) return;
     if (res.ok) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message)));
-      Navigator.of(
-        context,
-      ).push(fadeRoute(OtpVerifyPage(name: name, mobile: mobile)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res.message)));
+      Navigator.of(context).push(
+        fadeRoute(OtpVerifyPage(name: name, mobile: mobile)),
+      );
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(res.message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(res.message)));
     }
   }
 
@@ -69,6 +67,7 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
     final colorScheme = Theme.of(context).colorScheme;
     final color = colorScheme.primary;
     final accent = colorScheme.secondary;
+
     return Scaffold(
       // Slight off-white around the login box
       backgroundColor: const Color(0xFFF7F7F7),
@@ -83,7 +82,7 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
               shadowColor: accent.withOpacity(0.20),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
-                side: BorderSide(color: const Color(0x16000000)),
+                side: const BorderSide(color: Color(0x16000000)),
               ),
               margin: const EdgeInsets.symmetric(horizontal: 24),
               child: Stack(
@@ -100,7 +99,9 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                           Text(
                             'Login',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.headlineSmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall
                                 ?.copyWith(
                                   color: Colors.black87,
                                   fontWeight: FontWeight.w800,
@@ -110,7 +111,9 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                           Text(
                             "Let's Get Started",
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.titleMedium
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
                                 ?.copyWith(
                                   color: Colors.black87,
                                   fontWeight: FontWeight.w700,
@@ -120,16 +123,36 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                           Text(
                             'Please sign in to continue',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: Colors.black54),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 16,
+                                ),
                           ),
                           const SizedBox(height: 24),
                           // Name
                           TextFormField(
                             controller: _nameController,
                             textInputAction: TextInputAction.next,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
                             decoration: InputDecoration(
                               labelText: 'Full Name',
+                              labelStyle: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14.5,
+                              ),
+                              floatingLabelStyle: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w700,
+                              ),
                               prefixIcon: const Icon(
                                 Icons.person_outline,
                                 color: Colors.black87,
@@ -142,10 +165,12 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                               ),
                             ),
                             validator: (v) {
-                              if (v == null || v.trim().isEmpty)
+                              if (v == null || v.trim().isEmpty) {
                                 return 'Please enter your name';
-                              if (v.trim().length < 2)
+                              }
+                              if (v.trim().length < 2) {
                                 return 'Name seems too short';
+                              }
                               return null;
                             },
                           ),
@@ -155,26 +180,42 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                             controller: _mobileController,
                             keyboardType: TextInputType.phone,
                             maxLength: 10,
-                            decoration: const InputDecoration(
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                            decoration: InputDecoration(
                               labelText: 'Mobile Number',
+                              labelStyle: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14.5,
+                              ),
+                              floatingLabelStyle: TextStyle(
+                                color: accent,
+                                fontWeight: FontWeight.w700,
+                              ),
                               counterText: '',
-                              prefixIcon: Icon(
+                              prefixIcon: const Icon(
                                 Icons.phone_iphone,
                                 color: Colors.black87,
                               ),
                               filled: true,
-                              fillColor: Color(0xFFF6F7FB),
-                              contentPadding: EdgeInsets.symmetric(
+                              fillColor: const Color(0xFFF6F7FB),
+                              contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 16,
                               ),
                             ),
                             validator: (v) {
                               final value = (v ?? '').trim();
-                              if (value.isEmpty)
+                              if (value.isEmpty) {
                                 return 'Please enter your mobile number';
-                              if (!RegExp(r'^\d{10}$').hasMatch(value))
+                              }
+                              if (!RegExp(r'^\d{10}$').hasMatch(value)) {
                                 return 'Enter a valid 10-digit number';
+                              }
                               return null;
                             },
                           ),
@@ -190,17 +231,17 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                                   shape: const MaterialStatePropertyAll(
                                     StadiumBorder(),
                                   ),
-                                  elevation: const MaterialStatePropertyAll(6),
+                                  elevation:
+                                      const MaterialStatePropertyAll(6),
                                   shadowColor: MaterialStatePropertyAll(
                                     accent.withOpacity(0.35),
                                   ),
-                                  backgroundColor: MaterialStatePropertyAll(
-                                    color,
-                                  ),
+                                  backgroundColor:
+                                      MaterialStatePropertyAll(color),
                                   foregroundColor:
                                       const MaterialStatePropertyAll(
-                                        Colors.white,
-                                      ),
+                                    Colors.white,
+                                  ),
                                 ),
                                 onPressed: _sendingOtp ? null : _onContinue,
                                 child: Row(
@@ -232,35 +273,15 @@ class _LoginRegisterPageState extends State<LoginRegisterPage>
                           Text(
                             'We will send an OTP to verify your number.',
                             textAlign: TextAlign.center,
-                            style: Theme.of(context).textTheme.bodySmall
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
                                 ?.copyWith(
-                                  color: Colors.black.withOpacity(0.7),
+                                  color: Colors.black.withOpacity(0.78),
+                                  fontSize: 15,
                                 ),
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Don't have an account? ",
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Colors.black.withOpacity(0.75),
-                                    ),
-                              ),
-                              GestureDetector(
-                                onTap: _onContinue,
-                                child: Text(
-                                  'Sign up',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: accent,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),

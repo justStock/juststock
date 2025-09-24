@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:newjuststock/core/navigation/fade_route.dart';
-import 'package:newjuststock/features/home/presentation/pages/home_page.dart';
+import 'package:newjuststock/features/legal/presentation/pages/terms_conditions_page.dart';
 import 'package:newjuststock/services/auth_service.dart';
 import 'package:newjuststock/services/session_service.dart';
 
@@ -42,7 +42,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
       final token = _extractToken(data);
       final resolvedName = _extractName(data);
 
-      await _persistSession(token, resolvedName);
+      final session = await _persistSession(token, resolvedName);
       if (!mounted) return;
 
       setState(() => _verified = true);
@@ -53,13 +53,7 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
         );
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.of(context).pushAndRemoveUntil(
-          fadeRoute(
-            HomePage(
-              name: resolvedName,
-              mobile: widget.mobile,
-              token: token.isNotEmpty ? token : null,
-            ),
-          ),
+          fadeRoute(TermsConditionsPage(session: session)),
           (route) => false,
         );
       });
@@ -70,14 +64,19 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
     }
   }
 
-  Future<void> _persistSession(String token, String resolvedName) async {
+  Future<AuthSession> _persistSession(String token, String resolvedName) async {
+    final session = AuthSession(
+      token: token,
+      name: resolvedName,
+      mobile: widget.mobile,
+      termsAccepted: false,
+    );
     if (token.isNotEmpty) {
-      await SessionService.saveSession(
-        AuthSession(token: token, name: resolvedName, mobile: widget.mobile),
-      );
+      await SessionService.saveSession(session);
     } else {
       await SessionService.clearSession();
     }
+    return session;
   }
 
   Future<void> _resend() async {
@@ -182,6 +181,11 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                     Text(
                       'Enter the 6-digit code sent to $masked',
                       textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Colors.black87,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 20),
                     Form(
@@ -228,7 +232,13 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                                   color: Colors.white,
                                 ),
                               )
-                            : Text(_verified ? 'Verified' : 'Verify'),
+                            : Text(
+                                _verified ? 'Verified' : 'Verify',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -238,6 +248,10 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                         foregroundColor: Theme.of(
                           context,
                         ).colorScheme.secondary,
+                        textStyle: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       child: const Text('Resend OTP'),
                     ),
@@ -245,9 +259,10 @@ class _OtpVerifyPageState extends State<OtpVerifyPage> {
                     Text(
                       'Didn\'t receive the code? Tap resend.',
                       textAlign: TextAlign.center,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.black.withOpacity(0.75),
+                        fontSize: 14.5,
+                      ),
                     ),
                   ],
                 ),
