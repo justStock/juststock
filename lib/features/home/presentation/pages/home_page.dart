@@ -140,8 +140,9 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      final missingKeys =
-          _segmentKeys.where((key) => !segments.containsKey(key)).toList();
+      final missingKeys = _segmentKeys
+          .where((key) => !segments.containsKey(key))
+          .toList();
       if (segments.isEmpty) {
         _segmentsError =
             'Unable to fetch market updates right now. Pull to refresh to try again.';
@@ -155,15 +156,60 @@ class _HomePageState extends State<HomePage> {
 
     if (!silently) {
       if (segments.isEmpty) {
-        _showSnack('Unable to fetch the latest market updates. Please try again.');
+        _showSnack(
+          'Unable to fetch the latest market updates. Please try again.',
+        );
       } else {
-        final missingKeys =
-            _segmentKeys.where((key) => !segments.containsKey(key)).toList();
+        final missingKeys = _segmentKeys
+            .where((key) => !segments.containsKey(key))
+            .toList();
         if (missingKeys.isNotEmpty) {
           _showSnack('Some market updates could not be refreshed.');
         }
       }
     }
+  }
+
+  Future<void> _loadGallery({bool silently = false}) async {
+    if (!silently) {
+      setState(() {
+        _galleryError = null;
+      });
+    }
+    setState(() {
+      _loadingGallery = true;
+    });
+
+    List<GalleryImage>? images;
+    String? error;
+
+    try {
+      final fetched = await GalleryService.fetchImages(limit: 3);
+      final sorted = List<GalleryImage>.from(fetched)
+        ..sort(
+          (a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
+        );
+      images = sorted.take(3).toList(growable: false);
+    } catch (e) {
+      if (e is GalleryFetchException) {
+        error = e.message;
+      } else {
+        error = 'Unable to load images. Please try again.';
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _loadingGallery = false;
+      if (images != null) {
+        _galleryImages = images;
+        _galleryError = null;
+      } else {
+        _galleryError = error;
+      }
+    });
   }
 
   bool _isSegmentUnread(String key) {
@@ -192,7 +238,9 @@ class _HomePageState extends State<HomePage> {
       isScrollControlled: false,
       builder: (context) {
         final theme = Theme.of(context);
-        final label = segment.label.trim().isEmpty ? item.title : segment.label.trim();
+        final label = segment.label.trim().isEmpty
+            ? item.title
+            : segment.label.trim();
         final timestamp = _formatTimestamp(segment.updatedAt);
         return SafeArea(
           child: Padding(
@@ -203,13 +251,17 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   label,
-                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 if (timestamp != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     timestamp,
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.black54,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -235,7 +287,6 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = scheme.primary;
     final items = _segmentDescriptors
         .map(
           (descriptor) => _HomeItem(
@@ -245,7 +296,6 @@ class _HomePageState extends State<HomePage> {
                 ? scheme.secondary
                 : scheme.primary,
             segmentKey: descriptor.key,
-            imageAsset: descriptor.asset,
           ),
         )
         .toList();
@@ -310,18 +360,18 @@ class _HomePageState extends State<HomePage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final circleDiameter = width >= 1100
-              ? 132.0
+              ? 88.0
               : width >= 820
-              ? 120.0
+              ? 78.0
               : width >= 600
-              ? 110.0
-              : 100.0;
+              ? 70.0
+              : 60.0;
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: RefreshIndicator(
               onRefresh: () async {
-                await Future.wait([
+                await Future.wait<void>([
                   _loadSegments(silently: true),
                   _loadGallery(silently: true),
                 ]);
@@ -338,16 +388,15 @@ class _HomePageState extends State<HomePage> {
 
                     const SizedBox(height: 12),
 
-                    // ======= FULL-WIDTH CLICKABLE DailyTip BANNER =======
-                    _DailyTipBanner(
+                    _DailyTipChip(
                       onTap: () {
-                        Navigator.of(context).push(
-                          fadeRoute(const DailyTipPage()),
-                        );
+                        Navigator.of(
+                          context,
+                        ).push(fadeRoute(const DailyTipPage()));
                       },
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 20),
 
                     if (_segmentsError != null) ...[
                       Card(
@@ -376,22 +425,24 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 12),
                     ],
                     Center(
-                      child: Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 16,
-                        runSpacing: 16,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           for (final item in items)
-                            _HomeCircleTile(
-                              title: item.title,
-                              icon: item.icon,
-                              color: item.color,
-                              imageAsset: item.imageAsset,
-                              diameter: circleDiameter,
-                              hasNotification: _isSegmentUnread(
-                                item.segmentKey,
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
                               ),
-                              onTap: () => _handleSegmentTap(item),
+                              child: _HomeCircleTile(
+                                title: item.title,
+                                icon: item.icon,
+                                color: item.color,
+                                diameter: circleDiameter,
+                                hasNotification: _isSegmentUnread(
+                                  item.segmentKey,
+                                ),
+                                onTap: () => _handleSegmentTap(item),
+                              ),
                             ),
                         ],
                       ),
@@ -427,7 +478,18 @@ class _HomePageState extends State<HomePage> {
     if (timestamp == null) return null;
     final local = timestamp.toLocal();
     const months = [
-      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     final month = months[local.month - 1];
     final day = local.day;
@@ -471,7 +533,6 @@ class _HomeItem {
 }
 
 /// Circle tile with bigger inner icon and smaller label.
-/// Kept `imageAsset` & `hasNotification` to keep hot reload happy.
 class _HomeCircleTile extends StatefulWidget {
   final String title;
   final IconData icon;
@@ -496,17 +557,14 @@ class _HomeCircleTile extends StatefulWidget {
 class _HomeCircleTileState extends State<_HomeCircleTile> {
   bool _hovered = false;
 
-  LinearGradient get _warmGradient => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFFFE259), Color(0xFFFFA319)], // brighter yellow→orange
-      );
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final title = widget.title;
+    final icon = widget.icon;
+    final color = widget.color;
+    final onTap = widget.onTap;
     final diameter = widget.diameter;
-    final imageAsset = widget.imageAsset;
     final hasNotification = widget.hasNotification;
 
     final baseScale = hasNotification ? 1.02 : 1.0;
@@ -521,7 +579,7 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
         duration: const Duration(milliseconds: 150),
         curve: Curves.easeOut,
         child: SizedBox(
-          width: diameter + 16,
+          width: diameter,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
@@ -540,42 +598,35 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [color, theme.colorScheme.secondary],
+                          colors: [
+                            color,
+                            Color.lerp(color, const Color(0xFFFF9800), 0.35)!,
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: color.withOpacity(
-                              hasNotification ? 0.55 : 0.25,
+                              hasNotification ? 0.5 : 0.2,
                             ),
-                            blurRadius: hasNotification ? 22 : 14,
-                            spreadRadius: hasNotification ? 1.5 : 0,
-                            offset: const Offset(0, 8),
+                            blurRadius: hasNotification ? 18 : 12,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (imageAsset != null && imageAsset.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Image.asset(
-                                imageAsset,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          else
-                            Icon(
-                              icon,
-                              size: diameter * 0.44,
-                              color: Colors.white,
-                            ),
+                          Icon(
+                            icon,
+                            size: diameter * 0.32,
+                            color: Colors.white,
+                          ),
                           if (hasNotification)
                             Positioned(
-                              top: 16,
-                              right: 18,
+                              top: 12,
+                              right: 12,
                               child: _NotificationBadge(
                                 glowColor: color,
                                 color: Colors.white,
@@ -587,13 +638,13 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.labelMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  letterSpacing: 0.3,
+                  letterSpacing: 0.2,
                 ),
               ),
             ],
@@ -604,56 +655,79 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
   }
 }
 
-// ===== FULL-WIDTH DailyTip banner =====
-class _DailyTipBanner extends StatelessWidget {
+class _NotificationBadge extends StatelessWidget {
+  const _NotificationBadge({required this.glowColor, required this.color});
+
+  final Color glowColor;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 16,
+      height: 16,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        boxShadow: [
+          BoxShadow(
+            color: glowColor.withOpacity(0.6),
+            blurRadius: 10,
+            spreadRadius: 1.2,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DailyTipChip extends StatelessWidget {
+  const _DailyTipChip({required this.onTap});
+
   final VoidCallback onTap;
-  const _DailyTipBanner({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    // Bright, high-contrast yellow→orange gradient
-    const gradient = LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        Color(0xFFFFF176), // Yellow 300
-        Color(0xFFFFD54F), // Amber 300
-        Color(0xFFFFA319), // Bright Orange
-      ],
-      stops: [0.05, 0.45, 1.0],
-    );
-
-    return Material(
-      color: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+    return Align(
+      alignment: Alignment.centerLeft,
       child: InkWell(
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
         child: Ink(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
           decoration: BoxDecoration(
-            gradient: gradient,
-            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              colors: [scheme.primary, scheme.secondary],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: [
               BoxShadow(
-                color: scheme.primary.withOpacity(0.25),
-                blurRadius: 14,
-                offset: const Offset(0, 6),
+                color: scheme.primary.withOpacity(0.35),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
               ),
             ],
           ),
-          child: const Center(
-            child: Text(
-              'DailyTip',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.lightbulb_outline, color: Colors.white, size: 18),
+                SizedBox(width: 6),
+                Text(
+                  'DailyTip',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.25,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -748,7 +822,8 @@ class _AdVideoTileState extends State<_AdVideoTile> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final aspectRatio = controller != null &&
+    final aspectRatio =
+        controller != null &&
             controller.value.isInitialized &&
             controller.value.aspectRatio > 0
         ? controller.value.aspectRatio
