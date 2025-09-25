@@ -5,6 +5,8 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+layout.buildDirectory.set(file("../../build/${project.name}"))
+
 android {
     namespace = "com.example.newjuststock"
     compileSdk = flutter.compileSdkVersion

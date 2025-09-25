@@ -37,6 +37,9 @@ class _HomePageState extends State<HomePage> {
     'commodity',
   ];
 
+  static const Color _segmentGradientStart = Color(0xFFFFA000);
+  static const Color _segmentGradientEnd = Color(0xFFFFC107);
+
   static const List<_SegmentDescriptor> _segmentDescriptors = [
     _SegmentDescriptor(
       key: 'nifty',
@@ -292,10 +295,9 @@ class _HomePageState extends State<HomePage> {
           (descriptor) => _HomeItem(
             title: descriptor.title,
             icon: descriptor.icon,
-            color: descriptor.tone == _SegmentTone.secondary
-                ? scheme.secondary
-                : scheme.primary,
             segmentKey: descriptor.key,
+            gradientStart: _segmentGradientStart,
+            gradientEnd: _segmentGradientEnd,
           ),
         )
         .toList();
@@ -359,13 +361,30 @@ class _HomePageState extends State<HomePage> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final circleDiameter = width >= 1100
-              ? 88.0
-              : width >= 820
-              ? 78.0
-              : width >= 600
-              ? 70.0
-              : 60.0;
+          final itemCount = items.length;
+          const double baseGap = 6.0;
+          final gap = itemCount > 1 ? baseGap : 0.0;
+          final availableRowWidth = (width - 32).clamp(0.0, 520.0);
+          final rawDiameter = itemCount > 0
+              ? (availableRowWidth - gap * (itemCount - 1)) / itemCount
+              : 0.0;
+          double circleDiameter;
+          if (rawDiameter.isFinite && rawDiameter > 0) {
+            circleDiameter = rawDiameter.clamp(42.0, 88.0);
+            if (rawDiameter < 42.0) {
+              circleDiameter = rawDiameter;
+            }
+          } else if (availableRowWidth > 0 && itemCount > 0) {
+            circleDiameter = availableRowWidth / itemCount;
+          } else {
+            circleDiameter = 52.0;
+          }
+          if (!circleDiameter.isFinite || circleDiameter <= 0) {
+            circleDiameter = 52.0;
+          }
+          final rowWidth = itemCount > 0
+              ? circleDiameter * itemCount + gap * (itemCount - 1)
+              : circleDiameter;
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
@@ -425,26 +444,30 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: 12),
                     ],
                     Center(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (final item in items)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                              ),
-                              child: _HomeCircleTile(
-                                title: item.title,
-                                icon: item.icon,
-                                color: item.color,
-                                diameter: circleDiameter,
-                                hasNotification: _isSegmentUnread(
-                                  item.segmentKey,
+                      child: SizedBox(
+                        width: rowWidth,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < items.length; i++) ...[
+                              if (i > 0) SizedBox(width: gap),
+                              SizedBox(
+                                width: circleDiameter,
+                                child: _HomeCircleTile(
+                                  title: items[i].title,
+                                  icon: items[i].icon,
+                                  gradientStart: items[i].gradientStart,
+                                  gradientEnd: items[i].gradientEnd,
+                                  diameter: circleDiameter,
+                                  hasNotification: _isSegmentUnread(
+                                    items[i].segmentKey,
+                                  ),
+                                  onTap: () => _handleSegmentTap(items[i]),
                                 ),
-                                onTap: () => _handleSegmentTap(item),
                               ),
-                            ),
-                        ],
+                            ],
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -498,7 +521,7 @@ class _HomePageState extends State<HomePage> {
     final hour = hour24 % 12 == 0 ? 12 : hour24 % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     final period = hour24 >= 12 ? 'PM' : 'AM';
-    return '$day $month $year ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $hour:$minute $period';
+    return '$day $month $year - $hour:$minute $period';
   }
 }
 
@@ -521,14 +544,16 @@ enum _SegmentTone { primary, secondary }
 class _HomeItem {
   final String title;
   final IconData icon;
-  final Color color;
   final String segmentKey;
+  final Color gradientStart;
+  final Color gradientEnd;
 
   const _HomeItem({
     required this.title,
     required this.icon,
-    required this.color,
     required this.segmentKey,
+    required this.gradientStart,
+    required this.gradientEnd,
   });
 }
 
@@ -536,7 +561,8 @@ class _HomeItem {
 class _HomeCircleTile extends StatefulWidget {
   final String title;
   final IconData icon;
-  final Color color;
+  final Color gradientStart;
+  final Color gradientEnd;
   final VoidCallback onTap;
   final double diameter;
   final bool hasNotification;
@@ -544,7 +570,8 @@ class _HomeCircleTile extends StatefulWidget {
   const _HomeCircleTile({
     required this.title,
     required this.icon,
-    required this.color,
+    required this.gradientStart,
+    required this.gradientEnd,
     required this.onTap,
     required this.diameter,
     this.hasNotification = false,
@@ -562,10 +589,22 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
     final theme = Theme.of(context);
     final title = widget.title;
     final icon = widget.icon;
-    final color = widget.color;
+    final gradientStart = widget.gradientStart;
+    final gradientEnd = widget.gradientEnd;
     final onTap = widget.onTap;
     final diameter = widget.diameter;
     final hasNotification = widget.hasNotification;
+
+    final baseLabelStyle =
+        theme.textTheme.labelMedium ?? theme.textTheme.bodySmall ?? const TextStyle(fontSize: 12);
+    final baseFontSize = baseLabelStyle.fontSize ?? 12.0;
+    final scaledFontSize = (baseFontSize * (diameter / 60.0)).clamp(10.0, baseFontSize + 1.0);
+    final labelStyle = baseLabelStyle.copyWith(
+      fontSize: scaledFontSize,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+    );
+    final iconSize = (diameter * 0.32).clamp(18.0, 30.0);
 
     final baseScale = hasNotification ? 1.02 : 1.0;
     final hoverScale = hasNotification ? 0.03 : 0.04;
@@ -599,16 +638,16 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
                           colors: [
-                            color,
-                            Color.lerp(color, const Color(0xFFFF9800), 0.35)!,
+                            gradientStart,
+                            gradientEnd,
                           ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withOpacity(
-                              hasNotification ? 0.5 : 0.2,
+                            color: gradientStart.withOpacity(
+                              hasNotification ? 0.55 : 0.25,
                             ),
                             blurRadius: hasNotification ? 18 : 12,
                             offset: const Offset(0, 6),
@@ -620,15 +659,15 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                         children: [
                           Icon(
                             icon,
-                            size: diameter * 0.32,
+                            size: iconSize,
                             color: Colors.white,
                           ),
                           if (hasNotification)
                             Positioned(
-                              top: 12,
-                              right: 12,
+                              top: diameter * 0.18,
+                              right: diameter * 0.18,
                               child: _NotificationBadge(
-                                glowColor: color,
+                                glowColor: gradientStart,
                                 color: Colors.white,
                               ),
                             ),
@@ -642,10 +681,7 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
-                ),
+                style: labelStyle,
               ),
             ],
           ),
