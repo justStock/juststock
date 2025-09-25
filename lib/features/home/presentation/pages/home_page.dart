@@ -109,9 +109,7 @@ class _HomePageState extends State<HomePage> {
     if (!mounted) return;
 
     if (result.unauthorized) {
-      if (!silently) {
-        _showSnack('Session expired. Please log in again.');
-      }
+      if (!silently) _showSnack('Session expired. Please log in again.');
       await SessionService.clearSession();
       if (!mounted) return;
       setState(() {
@@ -142,9 +140,8 @@ class _HomePageState extends State<HomePage> {
         }
       }
 
-      final missingKeys = _segmentKeys
-          .where((key) => !segments.containsKey(key))
-          .toList();
+      final missingKeys =
+          _segmentKeys.where((key) => !segments.containsKey(key)).toList();
       if (segments.isEmpty) {
         _segmentsError =
             'Unable to fetch market updates right now. Pull to refresh to try again.';
@@ -158,59 +155,15 @@ class _HomePageState extends State<HomePage> {
 
     if (!silently) {
       if (segments.isEmpty) {
-        _showSnack(
-          'Unable to fetch the latest market updates. Please try again.',
-        );
+        _showSnack('Unable to fetch the latest market updates. Please try again.');
       } else {
-        final missingKeys = _segmentKeys
-            .where((key) => !segments.containsKey(key))
-            .toList();
+        final missingKeys =
+            _segmentKeys.where((key) => !segments.containsKey(key)).toList();
         if (missingKeys.isNotEmpty) {
           _showSnack('Some market updates could not be refreshed.');
         }
       }
     }
-  }
-
-  Future<void> _loadGallery({bool silently = false}) async {
-    if (!silently) {
-      setState(() {
-        _galleryError = null;
-      });
-    }
-    setState(() {
-      _loadingGallery = true;
-    });
-
-    List<GalleryImage>? images;
-    String? error;
-
-    try {
-      final fetched = await GalleryService.fetchImages(limit: 3);
-      images = List<GalleryImage>.from(fetched)
-        ..sort(
-          (a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
-              .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
-        );
-    } catch (e) {
-      if (e is GalleryFetchException) {
-        error = e.message;
-      } else {
-        error = 'Unable to load images. Please try again.';
-      }
-    }
-
-    if (!mounted) return;
-
-    setState(() {
-      _loadingGallery = false;
-      if (images != null) {
-        _galleryImages = images.take(3).toList(growable: false);
-        _galleryError = null;
-      } else {
-        _galleryError = error;
-      }
-    });
   }
 
   bool _isSegmentUnread(String key) {
@@ -239,9 +192,7 @@ class _HomePageState extends State<HomePage> {
       isScrollControlled: false,
       builder: (context) {
         final theme = Theme.of(context);
-        final label = segment.label.trim().isEmpty
-            ? item.title
-            : segment.label.trim();
+        final label = segment.label.trim().isEmpty ? item.title : segment.label.trim();
         final timestamp = _formatTimestamp(segment.updatedAt);
         return SafeArea(
           child: Padding(
@@ -252,17 +203,13 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Text(
                   label,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
                 ),
                 if (timestamp != null) ...[
                   const SizedBox(height: 6),
                   Text(
                     timestamp,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.black54,
-                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -276,11 +223,6 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
-
-    if (!mounted) return;
-    setState(() {
-      _acknowledgedMessages[item.segmentKey] = message;
-    });
   }
 
   void _showSnack(String message) {
@@ -294,17 +236,19 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = scheme.primary;
-    final items = _segmentDescriptors.map((descriptor) {
-      final baseColor = descriptor.tone == _SegmentTone.secondary
-          ? const Color(0xFFFFB74D)
-          : const Color(0xFFFFA726);
-      return _HomeItem(
-        title: descriptor.title,
-        icon: descriptor.icon,
-        color: baseColor,
-        segmentKey: descriptor.key,
-      );
-    }).toList();
+    final items = _segmentDescriptors
+        .map(
+          (descriptor) => _HomeItem(
+            title: descriptor.title,
+            icon: descriptor.icon,
+            color: descriptor.tone == _SegmentTone.secondary
+                ? scheme.secondary
+                : scheme.primary,
+            segmentKey: descriptor.key,
+            imageAsset: descriptor.asset,
+          ),
+        )
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -355,7 +299,7 @@ class _HomePageState extends State<HomePage> {
               customBorder: const CircleBorder(),
               child: CircleAvatar(
                 backgroundColor: Colors.white,
-                foregroundColor: color,
+                foregroundColor: scheme.primary,
                 child: Text(_initial),
               ),
             ),
@@ -366,12 +310,12 @@ class _HomePageState extends State<HomePage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final circleDiameter = width >= 1100
-              ? 96.0
+              ? 132.0
               : width >= 820
-              ? 90.0
+              ? 120.0
               : width >= 600
-              ? 84.0
-              : 78.0;
+              ? 110.0
+              : 100.0;
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
@@ -391,7 +335,20 @@ class _HomePageState extends State<HomePage> {
                       'Welcome, $_displayName!',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
-                    const SizedBox(height: 6),
+
+                    const SizedBox(height: 12),
+
+                    // ======= FULL-WIDTH CLICKABLE DailyTip BANNER =======
+                    _DailyTipBanner(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          fadeRoute(const DailyTipPage()),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 18),
+
                     if (_segmentsError != null) ...[
                       Card(
                         color: scheme.errorContainer.withOpacity(0.4),
@@ -421,14 +378,15 @@ class _HomePageState extends State<HomePage> {
                     Center(
                       child: Wrap(
                         alignment: WrapAlignment.center,
-                        spacing: 12,
-                        runSpacing: 12,
+                        spacing: 16,
+                        runSpacing: 16,
                         children: [
                           for (final item in items)
                             _HomeCircleTile(
                               title: item.title,
                               icon: item.icon,
                               color: item.color,
+                              imageAsset: item.imageAsset,
                               diameter: circleDiameter,
                               hasNotification: _isSegmentUnread(
                                 item.segmentKey,
@@ -469,18 +427,7 @@ class _HomePageState extends State<HomePage> {
     if (timestamp == null) return null;
     final local = timestamp.toLocal();
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
     ];
     final month = months[local.month - 1];
     final day = local.day;
@@ -489,7 +436,7 @@ class _HomePageState extends State<HomePage> {
     final hour = hour24 % 12 == 0 ? 12 : hour24 % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     final period = hour24 >= 12 ? 'PM' : 'AM';
-    return '$day $month $year Ã¢â‚¬Â¢ $hour:$minute $period';
+    return '$day $month $year ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $hour:$minute $period';
   }
 }
 
@@ -523,6 +470,8 @@ class _HomeItem {
   });
 }
 
+/// Circle tile with bigger inner icon and smaller label.
+/// Kept `imageAsset` & `hasNotification` to keep hot reload happy.
 class _HomeCircleTile extends StatefulWidget {
   final String title;
   final IconData icon;
@@ -547,14 +496,17 @@ class _HomeCircleTile extends StatefulWidget {
 class _HomeCircleTileState extends State<_HomeCircleTile> {
   bool _hovered = false;
 
+  LinearGradient get _warmGradient => const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFFFFE259), Color(0xFFFFA319)], // brighter yellow→orange
+      );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final title = widget.title;
-    final icon = widget.icon;
-    final color = widget.color;
-    final onTap = widget.onTap;
     final diameter = widget.diameter;
+    final imageAsset = widget.imageAsset;
     final hasNotification = widget.hasNotification;
 
     final baseScale = hasNotification ? 1.02 : 1.0;
@@ -588,10 +540,7 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [
-                            color,
-                            Color.lerp(color, const Color(0xFFFF9800), 0.35)!,
-                          ],
+                          colors: [color, theme.colorScheme.secondary],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -609,11 +558,20 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          Icon(
-                            icon,
-                            size: diameter * 0.32,
-                            color: Colors.white,
-                          ),
+                          if (imageAsset != null && imageAsset.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Image.asset(
+                                imageAsset,
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                          else
+                            Icon(
+                              icon,
+                              size: diameter * 0.44,
+                              color: Colors.white,
+                            ),
                           if (hasNotification)
                             Positioned(
                               top: 16,
@@ -646,55 +604,91 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
   }
 }
 
-class _NotificationBadge extends StatefulWidget {
-  final Color glowColor;
-  final Color color;
-
-  const _NotificationBadge({required this.glowColor, required this.color});
-
-  @override
-  State<_NotificationBadge> createState() => _NotificationBadgeState();
-}
-
-class _NotificationBadgeState extends State<_NotificationBadge>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1300),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+// ===== FULL-WIDTH DailyTip banner =====
+class _DailyTipBanner extends StatelessWidget {
+  final VoidCallback onTap;
+  const _DailyTipBanner({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final curve = CurvedAnimation(parent: _controller, curve: Curves.easeInOut);
-    return FadeTransition(
-      opacity: Tween<double>(begin: 0.6, end: 1).animate(curve),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.85, end: 1.15).animate(curve),
-        child: Container(
-          width: 14,
-          height: 14,
+    final scheme = Theme.of(context).colorScheme;
+
+    // Bright, high-contrast yellow→orange gradient
+    const gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        Color(0xFFFFF176), // Yellow 300
+        Color(0xFFFFD54F), // Amber 300
+        Color(0xFFFFA319), // Bright Orange
+      ],
+      stops: [0.05, 0.45, 1.0],
+    );
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
           decoration: BoxDecoration(
-            color: widget.color,
-            shape: BoxShape.circle,
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: widget.glowColor.withOpacity(0.7),
-                blurRadius: 16,
-                spreadRadius: 1,
+                color: scheme.primary.withOpacity(0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
               ),
             ],
+          ),
+          child: const Center(
+            child: Text(
+              'DailyTip',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.5,
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+// ===== Blank DailyTip page =====
+class DailyTipPage extends StatelessWidget {
+  const DailyTipPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('DailyTip'),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [scheme.primary, scheme.secondary],
+            ),
+          ),
+        ),
+      ),
+      // Blank for now as requested
+      body: const SizedBox.shrink(),
+    );
+  }
+}
+
+// ------------------------------ Ads views ---------------------------------
 
 class _AdVideoTile extends StatefulWidget {
   final String assetPath;
@@ -754,8 +748,7 @@ class _AdVideoTileState extends State<_AdVideoTile> {
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
-    final aspectRatio =
-        controller != null &&
+    final aspectRatio = controller != null &&
             controller.value.isInitialized &&
             controller.value.aspectRatio > 0
         ? controller.value.aspectRatio
@@ -766,7 +759,28 @@ class _AdVideoTileState extends State<_AdVideoTile> {
         aspectRatio: aspectRatio,
         child: controller != null && controller.value.isInitialized
             ? VideoPlayer(controller)
-            : const Center(child: CircularProgressIndicator()),
+            : const _LoadingAdPlaceholder(),
+      ),
+    );
+  }
+}
+
+class _LoadingAdPlaceholder extends StatelessWidget {
+  const _LoadingAdPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      color: scheme.surface,
+      child: Center(
+        child: Text(
+          'Loading ad video...',
+          style: TextStyle(
+            color: const Color(0xFFFFA000),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ),
     );
   }
@@ -1147,6 +1161,7 @@ class _AdsSliderState extends State<_AdsSlider> {
       );
     }
     final paths = _validPaths;
+    final dotActive = Theme.of(context).colorScheme.primary;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1173,9 +1188,7 @@ class _AdsSliderState extends State<_AdsSlider> {
               width: active ? 16 : 8,
               height: 8,
               decoration: BoxDecoration(
-                color: active
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                color: active ? dotActive : dotActive.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(10),
               ),
             );
