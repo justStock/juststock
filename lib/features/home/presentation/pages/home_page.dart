@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +9,7 @@ import 'package:newjuststock/features/auth/presentation/pages/login_register_pag
 import 'package:newjuststock/features/profile/presentation/pages/profile_page.dart';
 import 'package:newjuststock/services/session_service.dart';
 import 'package:newjuststock/services/segment_service.dart';
+import 'package:newjuststock/services/gallery_service.dart';
 import 'package:newjuststock/wallet/ui/wallet_screen.dart';
 
 class HomePage extends StatefulWidget {
@@ -42,35 +43,30 @@ class _HomePageState extends State<HomePage> {
       title: 'NIFTY',
       icon: Icons.trending_up,
       tone: _SegmentTone.primary,
-      asset: 'assets/symbols/nifty50.png',
     ),
     _SegmentDescriptor(
       key: 'banknifty',
       title: 'BANKNIFTY',
       icon: Icons.account_balance,
       tone: _SegmentTone.secondary,
-      asset: 'assets/symbols/banknifty.png',
     ),
     _SegmentDescriptor(
       key: 'stocks',
       title: 'STOCKS',
-      icon: Icons.stacked_bar_chart,
+      icon: Icons.auto_graph,
       tone: _SegmentTone.primary,
-      asset: 'assets/symbols/stocks.png',
     ),
     _SegmentDescriptor(
       key: 'sensex',
       title: 'SENSEX',
-      icon: Icons.timeline,
+      icon: Icons.show_chart,
       tone: _SegmentTone.secondary,
-      asset: 'assets/symbols/sensex.png',
     ),
     _SegmentDescriptor(
       key: 'commodity',
       title: 'COMMODITY',
-      icon: Icons.oil_barrel,
+      icon: Icons.analytics_outlined,
       tone: _SegmentTone.primary,
-      asset: 'assets/symbols/commodity.png',
     ),
   ];
 
@@ -79,10 +75,15 @@ class _HomePageState extends State<HomePage> {
   bool _loadingSegments = false;
   String? _segmentsError;
 
+  List<GalleryImage> _galleryImages = const [];
+  bool _loadingGallery = false;
+  String? _galleryError;
+
   @override
   void initState() {
     super.initState();
     _loadSegments();
+    _loadGallery();
   }
 
   String get _displayName {
@@ -171,6 +172,47 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _loadGallery({bool silently = false}) async {
+    if (!silently) {
+      setState(() {
+        _galleryError = null;
+      });
+    }
+    setState(() {
+      _loadingGallery = true;
+    });
+
+    List<GalleryImage>? images;
+    String? error;
+
+    try {
+      final fetched = await GalleryService.fetchImages(limit: 3);
+      images = List<GalleryImage>.from(fetched)
+        ..sort(
+          (a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0))
+              .compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)),
+        );
+    } catch (e) {
+      if (e is GalleryFetchException) {
+        error = e.message;
+      } else {
+        error = 'Unable to load images. Please try again.';
+      }
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _loadingGallery = false;
+      if (images != null) {
+        _galleryImages = images.take(3).toList(growable: false);
+        _galleryError = null;
+      } else {
+        _galleryError = error;
+      }
+    });
+  }
+
   bool _isSegmentUnread(String key) {
     final segment = _segmentMessages[key];
     if (segment == null) return false;
@@ -252,19 +294,17 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = scheme.primary;
-    final items = _segmentDescriptors
-        .map(
-          (descriptor) => _HomeItem(
-            title: descriptor.title,
-            icon: descriptor.icon,
-            color: descriptor.tone == _SegmentTone.secondary
-                ? scheme.secondary
-                : scheme.primary,
-            segmentKey: descriptor.key,
-            imageAsset: descriptor.asset,
-          ),
-        )
-        .toList();
+    final items = _segmentDescriptors.map((descriptor) {
+      final baseColor = descriptor.tone == _SegmentTone.secondary
+          ? const Color(0xFFFFB74D)
+          : const Color(0xFFFFA726);
+      return _HomeItem(
+        title: descriptor.title,
+        icon: descriptor.icon,
+        color: baseColor,
+        segmentKey: descriptor.key,
+      );
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -326,17 +366,22 @@ class _HomePageState extends State<HomePage> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final circleDiameter = width >= 1100
-              ? 132.0
+              ? 96.0
               : width >= 820
-              ? 120.0
+              ? 90.0
               : width >= 600
-              ? 110.0
-              : 100.0;
+              ? 84.0
+              : 78.0;
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: RefreshIndicator(
-              onRefresh: () => _loadSegments(silently: true),
+              onRefresh: () async {
+                await Future.wait([
+                  _loadSegments(silently: true),
+                  _loadGallery(silently: true),
+                ]);
+              },
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
@@ -376,15 +421,14 @@ class _HomePageState extends State<HomePage> {
                     Center(
                       child: Wrap(
                         alignment: WrapAlignment.center,
-                        spacing: 16,
-                        runSpacing: 16,
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
                           for (final item in items)
                             _HomeCircleTile(
                               title: item.title,
                               icon: item.icon,
                               color: item.color,
-                              imageAsset: item.imageAsset,
                               diameter: circleDiameter,
                               hasNotification: _isSegmentUnread(
                                 item.segmentKey,
@@ -401,6 +445,15 @@ class _HomePageState extends State<HomePage> {
                         'assets/ads/free_acc.mp4',
                         'assets/ads/add3.mp4',
                       ],
+                    ),
+                    const SizedBox(height: 24),
+                    _GallerySection(
+                      images: _galleryImages,
+                      loading: _loadingGallery,
+                      error: _galleryError,
+                      onRetry: () {
+                        _loadGallery();
+                      },
                     ),
                   ],
                 ),
@@ -436,7 +489,7 @@ class _HomePageState extends State<HomePage> {
     final hour = hour24 % 12 == 0 ? 12 : hour24 % 12;
     final minute = local.minute.toString().padLeft(2, '0');
     final period = hour24 >= 12 ? 'PM' : 'AM';
-    return '$day $month $year ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ $hour:$minute $period';
+    return '$day $month $year Ã¢â‚¬Â¢ $hour:$minute $period';
   }
 }
 
@@ -445,14 +498,12 @@ class _SegmentDescriptor {
   final String title;
   final IconData icon;
   final _SegmentTone tone;
-  final String asset;
 
   const _SegmentDescriptor({
     required this.key,
     required this.title,
     required this.icon,
     required this.tone,
-    required this.asset,
   });
 }
 
@@ -463,14 +514,12 @@ class _HomeItem {
   final IconData icon;
   final Color color;
   final String segmentKey;
-  final String? imageAsset;
 
   const _HomeItem({
     required this.title,
     required this.icon,
     required this.color,
     required this.segmentKey,
-    this.imageAsset,
   });
 }
 
@@ -480,7 +529,6 @@ class _HomeCircleTile extends StatefulWidget {
   final Color color;
   final VoidCallback onTap;
   final double diameter;
-  final String? imageAsset;
   final bool hasNotification;
 
   const _HomeCircleTile({
@@ -489,7 +537,6 @@ class _HomeCircleTile extends StatefulWidget {
     required this.color,
     required this.onTap,
     required this.diameter,
-    this.imageAsset,
     this.hasNotification = false,
   });
 
@@ -508,7 +555,6 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
     final color = widget.color;
     final onTap = widget.onTap;
     final diameter = widget.diameter;
-    final imageAsset = widget.imageAsset;
     final hasNotification = widget.hasNotification;
 
     final baseScale = hasNotification ? 1.02 : 1.0;
@@ -542,7 +588,10 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [color, theme.colorScheme.secondary],
+                          colors: [
+                            color,
+                            Color.lerp(color, const Color(0xFFFF9800), 0.35)!,
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -560,20 +609,11 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          if (imageAsset != null && imageAsset.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Image.asset(
-                                imageAsset,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                          else
-                            Icon(
-                              icon,
-                              size: diameter * 0.44,
-                              color: Colors.white,
-                            ),
+                          Icon(
+                            icon,
+                            size: diameter * 0.32,
+                            color: Colors.white,
+                          ),
                           if (hasNotification)
                             Positioned(
                               top: 16,
@@ -732,6 +772,290 @@ class _AdVideoTileState extends State<_AdVideoTile> {
   }
 }
 
+class _GallerySection extends StatelessWidget {
+  const _GallerySection({
+    required this.images,
+    required this.loading,
+    required this.error,
+    required this.onRetry,
+  });
+
+  final List<GalleryImage> images;
+  final bool loading;
+  final String? error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasImages = images.isNotEmpty;
+    final errorMessage = error;
+
+    Widget content;
+    if (loading && !hasImages) {
+      content = const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 32),
+          child: SizedBox(
+            width: 28,
+            height: 28,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+        ),
+      );
+    } else if (!hasImages && errorMessage != null) {
+      content = _GalleryInfoCard(
+        icon: Icons.wifi_off,
+        message: errorMessage,
+        actionLabel: 'Retry',
+        onAction: loading ? null : onRetry,
+      );
+    } else if (!hasImages) {
+      content = _GalleryInfoCard(
+        icon: Icons.image_outlined,
+        message: 'No images available yet.',
+        actionLabel: 'Refresh',
+        onAction: loading ? null : onRetry,
+      );
+    } else {
+      content = _GallerySlider(images: images);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Latest Images',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (loading && hasImages)
+              const Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            const Spacer(),
+            IconButton(
+              onPressed: loading ? null : onRetry,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh images',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        content,
+        if (errorMessage != null && hasImages)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              errorMessage,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _GallerySlider extends StatefulWidget {
+  const _GallerySlider({required this.images});
+
+  final List<GalleryImage> images;
+
+  @override
+  State<_GallerySlider> createState() => _GallerySliderState();
+}
+
+class _GallerySliderState extends State<_GallerySlider> {
+  late final PageController _controller;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 0.9);
+  }
+
+  @override
+  void didUpdateWidget(covariant _GallerySlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.images.length != widget.images.length) {
+      _currentPage = 0;
+      if (_controller.hasClients) {
+        _controller.jumpToPage(0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final images = widget.images;
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 180,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: images.length,
+            onPageChanged: (index) => setState(() => _currentPage = index),
+            itemBuilder: (context, index) {
+              final image = images[index];
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: _GalleryTile(image: image),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(images.length, (index) {
+            final active = index == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: active ? 14 : 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: active
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.primary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            );
+          }),
+        ),
+      ],
+    );
+  }
+}
+
+class _GalleryTile extends StatelessWidget {
+  const _GalleryTile({required this.image});
+
+  final GalleryImage image;
+
+  double get _aspectRatio {
+    final width = image.width;
+    final height = image.height;
+    if (width != null && height != null && width > 0 && height > 0) {
+      return width / height;
+    }
+    return 16 / 9;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final placeholderColor = theme.colorScheme.surfaceVariant.withOpacity(0.4);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: AspectRatio(
+        aspectRatio: _aspectRatio,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(color: placeholderColor),
+            Image.network(
+              image.url,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) return child;
+                return Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: progress.expectedTotalBytes != null
+                          ? progress.cumulativeBytesLoaded /
+                                progress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
+                );
+              },
+              errorBuilder: (context, error, stackTrace) => Center(
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _GalleryInfoCard extends StatelessWidget {
+  const _GalleryInfoCard({
+    required this.icon,
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final IconData icon;
+  final String message;
+  final String actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Card(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 32, color: theme.colorScheme.primary),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onAction,
+                icon: const Icon(Icons.refresh),
+                label: Text(actionLabel),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AdsSlider extends StatefulWidget {
   final List<String> assetPaths;
 
@@ -818,7 +1142,7 @@ class _AdsSliderState extends State<_AdsSlider> {
   Widget build(BuildContext context) {
     if (!_ready) {
       return const SizedBox(
-        height: 220,
+        height: 180,
         child: Center(child: CircularProgressIndicator()),
       );
     }
@@ -827,7 +1151,7 @@ class _AdsSliderState extends State<_AdsSlider> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 220,
+          height: 180,
           child: PageView.builder(
             controller: _pageController,
             itemCount: paths.length,

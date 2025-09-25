@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:newjuststock/services/api_config.dart';
 
 class SegmentMessage {
   final String key;
@@ -51,7 +52,8 @@ class SegmentFetchResult {
 }
 
 class SegmentService {
-  static const String _baseUrl = 'https://juststock.onrender.com/api/segments';
+  static Uri _segmentUri(String key) =>
+      ApiConfig.buildUri('/api/segments/$key');
 
   static Future<SegmentFetchResult> fetchSegments(
     Iterable<String> keys, {
@@ -63,7 +65,7 @@ class SegmentService {
           .map<
             Future<({String key, SegmentMessage? message, bool unauthorized})>
           >((key) async {
-            final uri = Uri.parse('$_baseUrl/$key');
+            final uri = _segmentUri(key);
             final headers = <String, String>{
               'Accept': 'application/json',
               if (token != null && token.trim().isNotEmpty)

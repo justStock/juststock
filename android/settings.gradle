@@ -26,8 +26,10 @@ plugins {
     // Use AGP compatible with Gradle 8.7
     id "com.android.application" version "8.6.0" apply false
     id "com.android.library" version "8.6.0" apply false
-    // Kotlin version aligned with Flutter tooling and AGP 8.6
-    id "org.jetbrains.kotlin.android" version "1.9.24" apply false
+    // Upgrade Kotlin to meet Flutter's upcoming minimum (>= 2.1.0)
+    // Note: If your AGP version doesn't support Kotlin 2.1.x, either
+    // upgrade AGP accordingly or temporarily use 2.0.21.
+    id "org.jetbrains.kotlin.android" version "2.1.0" apply false
 }
 
 include ":app"

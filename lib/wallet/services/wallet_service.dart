@@ -1,6 +1,7 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:newjuststock/services/api_config.dart';
 
 import 'package:newjuststock/services/session_service.dart';
 
@@ -79,7 +80,7 @@ class WalletOrder {
 }
 
 class WalletService {
-  static const String _baseUrl = 'https://juststock.onrender.com/api/wallet';
+  static String get _baseUrl => '${ApiConfig.apiBaseUrl}/api/wallet';
 
   const WalletService._();
 
