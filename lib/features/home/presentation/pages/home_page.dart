@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,10 @@ import 'package:newjuststock/services/session_service.dart';
 import 'package:newjuststock/services/segment_service.dart';
 import 'package:newjuststock/services/gallery_service.dart';
 import 'package:newjuststock/wallet/ui/wallet_screen.dart';
+import 'package:newjuststock/wallet/services/wallet_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:newjuststock/features/messages/models/admin_message.dart';
+import 'package:newjuststock/features/messages/presentation/pages/admin_message_page.dart';
 
 class HomePage extends StatefulWidget {
   final String name;
@@ -87,6 +92,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _loadSegments();
     _loadGallery();
+    _loadSeenAcks();
   }
 
   String get _displayName {
@@ -226,58 +232,58 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _handleSegmentTap(_HomeItem item) async {
     final segment = _segmentMessages[item.segmentKey];
-    if (segment == null) {
-      _showSnack('No update for ${item.title} yet.');
-      return;
-    }
-    final message = segment.message.trim();
-    if (message.isEmpty) {
+    if (segment == null || segment.message.trim().isEmpty) {
       _showSnack('No update for ${item.title} yet.');
       return;
     }
 
-    await showModalBottomSheet<void>(
+    final confirmed = await showDialog<bool>(
       context: context,
-      isScrollControlled: false,
-      builder: (context) {
-        final theme = Theme.of(context);
-        final label = segment.label.trim().isEmpty
-            ? item.title
-            : segment.label.trim();
-        final timestamp = _formatTimestamp(segment.updatedAt);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (timestamp != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    timestamp,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                SelectableText(
-                  message,
-                  style: theme.textTheme.bodyLarge?.copyWith(height: 1.4),
-                ),
-              ],
-            ),
+      builder: (context) => AlertDialog(
+        title: Text('Unlock ${item.title}?'),
+        content: const Text(
+            'Unlock this message for ₹100. Amount will be debited from your wallet.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
           ),
-        );
-      },
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Pay ₹100'),
+          ),
+        ],
+      ),
     );
+    if (confirmed != true) return;
+
+    final result = await WalletService.debit(
+      amountInRupees: 100,
+      note: 'Unlock ${item.segmentKey} message',
+      token: widget.token,
+    );
+    if (!result.ok) {
+      _showSnack(result.message);
+      return;
+    }
+
+    final label = segment.label.trim().isEmpty ? item.title : segment.label;
+    final message = segment.message.trim();
+    await _saveAck(item.segmentKey, message);
+    if (!mounted) return;
+    Navigator.of(context).push(
+      fadeRoute(
+        AdminMessagePage(
+          message: AdminMessage(
+            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            title: label,
+            body: message,
+            createdAt: segment.updatedAt ?? DateTime.now(),
+          ),
+        ),
+      ),
+    );
+    setState(() {});
   }
 
   void _showSnack(String message) {
@@ -285,6 +291,40 @@ class _HomePageState extends State<HomePage> {
     ScaffoldMessenger.of(context)
       ..removeCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _loadSeenAcks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('segment_ack_v1');
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final parsed = <String, String>{};
+      for (final e in map.entries) {
+        final v = e.value?.toString() ?? '';
+        if (v.isNotEmpty) parsed[e.key] = v;
+      }
+      if (!mounted) return;
+      setState(() {
+        _acknowledgedMessages
+          ..clear()
+          ..addAll(parsed);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveAck(String key, String message) async {
+    _acknowledgedMessages[key] = message;
+    final prefs = await SharedPreferences.getInstance();
+    Map<String, dynamic> map = {};
+    final current = prefs.getString('segment_ack_v1');
+    if (current != null && current.isNotEmpty) {
+      try {
+        map = Map<String, dynamic>.from(jsonDecode(current) as Map);
+      } catch (_) {}
+    }
+    map[key] = message;
+    await prefs.setString('segment_ack_v1', jsonEncode(map));
   }
 
   @override
@@ -304,13 +344,10 @@ class _HomePageState extends State<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.show_chart, color: Colors.white),
-            SizedBox(width: 8),
-            Text('JustStock'),
-          ],
+        title: Image.asset(
+          'assets/app_icon/logo.png',
+          height: 28,
+          fit: BoxFit.contain,
         ),
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -415,7 +452,7 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 28),
 
                     if (_segmentsError != null) ...[
                       Card(
@@ -437,7 +474,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     if (_loadingSegments) ...[
                       const LinearProgressIndicator(minHeight: 2),
@@ -595,16 +632,24 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
     final diameter = widget.diameter;
     final hasNotification = widget.hasNotification;
 
+    // sizing above
     final baseLabelStyle =
-        theme.textTheme.labelMedium ?? theme.textTheme.bodySmall ?? const TextStyle(fontSize: 12);
+        theme.textTheme.labelMedium ??
+        theme.textTheme.bodySmall ??
+        const TextStyle(fontSize: 12);
     final baseFontSize = baseLabelStyle.fontSize ?? 12.0;
-    final scaledFontSize = (baseFontSize * (diameter / 60.0)).clamp(10.0, baseFontSize + 1.0);
+
+    // ↓ slightly smaller, and cap tightly so it never grows too big
+    final scaledFontSize = (baseFontSize * (diameter / 64.0)).clamp(9.0, 11.0);
+
     final labelStyle = baseLabelStyle.copyWith(
       fontSize: scaledFontSize,
       fontWeight: FontWeight.w700,
-      letterSpacing: 0.2,
+      letterSpacing: 0.1, // a touch tighter
     );
-    final iconSize = (diameter * 0.32).clamp(18.0, 30.0);
+
+    // ↓ make the inner icon a bit smaller so everything breathes
+    final iconSize = (diameter * 0.28).clamp(16.0, 28.0);
 
     final baseScale = hasNotification ? 1.02 : 1.0;
     final hoverScale = hasNotification ? 0.03 : 0.04;
@@ -637,10 +682,7 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         gradient: LinearGradient(
-                          colors: [
-                            gradientStart,
-                            gradientEnd,
-                          ],
+                          colors: [gradientStart, gradientEnd],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -657,11 +699,7 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          Icon(
-                            icon,
-                            size: iconSize,
-                            color: Colors.white,
-                          ),
+                          Icon(icon, size: iconSize, color: Colors.white),
                           if (hasNotification)
                             Positioned(
                               top: diameter * 0.18,
@@ -681,6 +719,9 @@ class _HomeCircleTileState extends State<_HomeCircleTile> {
               Text(
                 title,
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: labelStyle,
               ),
             ],
@@ -699,20 +740,16 @@ class _NotificationBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 16,
-      height: 16,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        boxShadow: [
-          BoxShadow(
-            color: glowColor.withOpacity(0.6),
-            blurRadius: 10,
-            spreadRadius: 1.2,
-          ),
-        ],
-      ),
+    return Icon(
+      Icons.notifications,
+      size: 16,
+      color: color,
+      shadows: [
+        Shadow(
+          color: glowColor.withOpacity(0.6),
+          blurRadius: 8,
+        ),
+      ],
     );
   }
 }

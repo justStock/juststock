@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
     const brandYellowDark = Color(0xFFF7971E);
     const adDark = brandYellowDark;
     return MaterialApp(
-      title: 'NewJustStock',
+      title: 'JustStock',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         // Yellow primary with darker yellow accents; white surfaces

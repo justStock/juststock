@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'package:newjuststock/wallet/services/wallet_service.dart';
+ 
 
 class WalletScreen extends StatefulWidget {
   final String name;
@@ -55,6 +56,8 @@ class _WalletScreenState extends State<WalletScreen> {
     _razorpay?.clear();
     super.dispose();
   }
+
+  
 
   Future<void> _loadBalance({bool silently = false}) async {
     if (!silently) {
