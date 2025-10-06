@@ -112,7 +112,7 @@ class _TermsConditionsPageState extends State<TermsConditionsPage> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text('Terms & Conditions', style: headlineStyle),
+                        Text('Disclaimer', style: headlineStyle),
                         const SizedBox(height: 12),
                         Text(
                           'We are not a registered broker, investment advisor, financial advisor, or any license required financial institution.',

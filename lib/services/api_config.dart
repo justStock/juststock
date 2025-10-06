@@ -1,7 +1,7 @@
 class ApiConfig {
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://juststock.onrender.com',
+    defaultValue: 'https://backend-server-11f5.onrender.com',
   );
 
   static String get _baseWithoutTrailingSlash => apiBaseUrl.endsWith('/')

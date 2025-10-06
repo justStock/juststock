@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:newjuststock/core/navigation/fade_route.dart';
-import 'package:newjuststock/services/session_service.dart';
 import 'package:newjuststock/features/auth/presentation/pages/login_register_page.dart';
+import 'package:newjuststock/features/profile/presentation/pages/refer_and_earn_page.dart';
+import 'package:newjuststock/services/session_service.dart';
 
 class ProfilePage extends StatelessWidget {
   final String name;
@@ -128,6 +129,19 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 24),
+            _ReferAndEarnCard(
+              onTap: () {
+                Navigator.of(context).push(
+                  fadeRoute(
+                    ReferAndEarnPage(
+                      referralCode: _referenceCode,
+                      userName: _displayName,
+                    ),
+                  ),
+                );
+              },
+            ),
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: () async {
@@ -202,6 +216,90 @@ class _ProfileInfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ReferAndEarnCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ReferAndEarnCard({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final gradient = LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [scheme.secondary, scheme.primary],
+    );
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: scheme.primary.withOpacity(0.12)),
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withOpacity(0.12),
+                blurRadius: 18,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Icon(
+                  Icons.groups_2_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Refer & Earn network',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF1F1F1F),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'See how each 3-person invite grows your levels step by step.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF6B6B6B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: scheme.secondary,
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
